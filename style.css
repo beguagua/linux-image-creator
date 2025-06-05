@@ -1,0 +1,22 @@
+body {
+  font-family: sans-serif;
+  padding: 20px;
+  background: #1e1e1e;
+  color: white;
+}
+
+#editor {
+  height: 500px;
+  border: 1px solid #444;
+  margin-bottom: 10px;
+}
+
+button {
+  padding: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#status {
+  margin-top: 10px;
+}
