@@ -1,18 +1,32 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Linux Builder</title>
-  <link rel="stylesheet" href="style.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Go Pizza - Crie sua própria distro Linux minimalista</title>
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Linux Builder - Editor</h1>
-  <div id="editor"></div>
-  <button id="build">Compilar e Gerar ISO</button>
-  <div id="status"></div>
+  <div class="container">
+    <h1>Go Pizza - Crie sua própria distro Linux minimalista</h1>
+    <p>Preencha o conteúdo dos arquivos abaixo e clique em baixar para gerar os arquivos.</p>
 
-  <script src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
+    <label for="kernel">kernel.c</label>
+    <textarea id="kernel" placeholder="Escreva ou cole o código do kernel.c aqui..."></textarea>
+
+    <label for="boot">boot.asm</label>
+    <textarea id="boot" placeholder="Escreva ou cole o código do boot.asm aqui..."></textarea>
+
+    <label for="linker">linker.ld</label>
+    <textarea id="linker" placeholder="Escreva ou cole o código do linker.ld aqui..."></textarea>
+
+    <label for="makefile">Makefile (opcional)</label>
+    <textarea id="makefile" placeholder="Escreva ou cole o código do Makefile aqui..."></textarea>
+
+    <button id="downloadBtn">Baixar todos os arquivos</button>
+  </div>
+
   <script src="script.js"></script>
 </body>
 </html>
+
