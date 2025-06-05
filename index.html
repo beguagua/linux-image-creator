@@ -30,6 +30,12 @@
     padding: 8px;
     font-size: 14px;
     margin-bottom: 20px;
+    background: #222;
+    border: none;
+    color: #eee;
+  }
+  input[type="text"]:focus, textarea:focus {
+    outline: 2px solid #FF6F00;
   }
   button {
     background: #FF6F00;
@@ -39,9 +45,15 @@
     font-size: 16px;
     cursor: pointer;
     border-radius: 5px;
+    transition: background 0.3s ease;
   }
-  button:hover { background: #e65c00; }
-  .container { max-width: 900px; margin: auto; }
+  button:hover {
+    background: #e65c00;
+  }
+  .container {
+    max-width: 900px;
+    margin: auto;
+  }
   #log {
     margin-top: 15px;
     background: #222;
@@ -51,6 +63,7 @@
     font-family: monospace;
     font-size: 13px;
     border-radius: 5px;
+    white-space: pre-wrap;
   }
 </style>
 </head>
@@ -109,21 +122,6 @@
   }
 
   function createDirectoryRecord(name, extentLocation, dataLength) {
-    /*
-      Directory Record format ISO9660
-      Length (1 byte)
-      Extended Attribute Length (1 byte) = 0
-      Location of extent (LSB and MSB) (8 bytes)
-      Data length (LSB and MSB) (8 bytes)
-      Recording Date and Time (7 bytes) - zero fill for simplicity
-      File Flags (1 byte)
-      File Unit Size (1 byte) = 0
-      Interleave Gap Size (1 byte) = 0
-      Volume Sequence Number (LSB and MSB) (4 bytes)
-      Length of File Identifier (1 byte)
-      File Identifier (variable)
-    */
-
     const nameUpper = name.toUpperCase();
     const identifierLength = nameUpper.length;
 
@@ -134,28 +132,24 @@
     record[0] = recordLength;
     record[1] = 0; // extended attr length
 
-    // extent location (logical block number)
     record.set(toBothEndian32(extentLocation), 2);
 
-    // data length
     record.set(toBothEndian32(dataLength), 10);
 
-    // Recording Date and Time (7 bytes) zero fill
     for(let i=18; i<25; i++) record[i] = 0;
 
-    record[25] = 0; // File flags - 0 normal file
+    record[25] = 0; // File flags
     record[26] = 0; // File unit size
     record[27] = 0; // Interleave gap size
 
-    record.set(toBothEndian16(1), 28); // Volume sequence number
+    record.set(toBothEndian16(1), 28);
 
-    record[32] = identifierLength; // length of file identifier
+    record[32] = identifierLength;
 
     for(let i=0; i<identifierLength; i++) {
       record[33+i] = nameUpper.charCodeAt(i);
     }
 
-    // Padding byte if needed
     if(identifierLength % 2 === 0) {
       record[33 + identifierLength] = 0;
     }
@@ -176,10 +170,6 @@
   function generateISO(files, volumeName) {
     log('Iniciando geração da ISO...');
 
-    // Tamanho ISO = sistema de arquivos muito básico + dados
-    // Reservaremos 50 setores para estrutura (suficiente para exemplo)
-    // + dados em setores alinhados de 2048 bytes
-
     const systemSectors = 50;
     let dataSectorsCount = 0;
     const fileDataBuffers = [];
@@ -197,106 +187,83 @@
     const isoBuffer = new Uint8Array(isoSize);
     log(`Total setores ISO: ${totalSectors} | Tamanho: ${isoSize} bytes`);
 
-    // 1) Preencher setor 16 com Volume Descriptor Primary
     const sector16 = 16 * SECTOR_SIZE;
-    isoBuffer[sector16] = 1; // volume descriptor type primary
+    isoBuffer[sector16] = 1;
     const id = "CD001";
     for(let i=0; i<id.length; i++) {
       isoBuffer[sector16 + 1 + i] = id.charCodeAt(i);
     }
-    isoBuffer[sector16 + 6] = 1; // version
+    isoBuffer[sector16 + 6] = 1;
 
-    // System Identifier (32 bytes)
     const sysId = padRight("GO PIZZA LINUX STUDIO", 32);
     for(let i=0; i<32; i++) {
       isoBuffer[sector16 + 8 + i] = sysId.charCodeAt(i);
     }
 
-    // Volume Identifier (32 bytes)
     const volId = padRight(volumeName, 32);
     for(let i=0; i<32; i++) {
       isoBuffer[sector16 + 40 + i] = volId.charCodeAt(i);
     }
 
-    // Volume Space Size (4 bytes LSB + 4 bytes MSB at offset 80)
     const volSpaceSize = totalSectors;
     let offset = sector16 + 80;
     const dv = new DataView(isoBuffer.buffer);
     dv.setUint32(offset, volSpaceSize, true);
     dv.setUint32(offset+4, volSpaceSize, false);
 
-    // Volume Set Size (2 bytes LSB + 2 bytes MSB at offset 120)
     dv.setUint16(sector16 + 120, 1, true);
     dv.setUint16(sector16 + 122, 1, false);
 
-    // Volume Sequence Number (2 bytes LSB + 2 bytes MSB at offset 124)
     dv.setUint16(sector16 + 124, 1, true);
     dv.setUint16(sector16 + 126, 1, false);
 
-    // Logical Block Size (2 bytes LSB + 2 bytes MSB at offset 128)
     dv.setUint16(sector16 + 128, SECTOR_SIZE, true);
     dv.setUint16(sector16 + 130, SECTOR_SIZE, false);
 
-    // Path Table Size (4 bytes LSB + 4 bytes MSB at offset 132)
     const pathTableSize = 10;
     dv.setUint32(sector16 + 132, pathTableSize, true);
     dv.setUint32(sector16 + 136, pathTableSize, false);
 
-    // Location of Type L Path Table (4 bytes LSB at offset 140)
     const pathTableSector = 18;
     dv.setUint32(sector16 + 140, pathTableSector, true);
-
-    // Location of Optional Type L Path Table (4 bytes LSB at offset 144)
     dv.setUint32(sector16 + 144, 0, true);
-
-    // Location of Type M Path Table (4 bytes MSB at offset 148)
     dv.setUint32(sector16 + 148, pathTableSector + 1, false);
-
-    // Location of Optional Type M Path Table (4 bytes MSB at offset 152)
     dv.setUint32(sector16 + 152, 0, false);
 
-    // Directory Record for Root Directory (34 bytes at offset 156)
     const rootDirSector = 20;
     const rootDirSize = SECTOR_SIZE;
     const rootDirRecord = createDirectoryRecord("\x00", rootDirSector, rootDirSize);
     isoBuffer.set(rootDirRecord, sector16 + 156);
 
-    // Volume Set Identifier (128 bytes at offset 190)
     const volSetId = padRight(volumeName, 128);
     for(let i=0; i<128; i++) {
       isoBuffer[sector16 + 190 + i] = volSetId.charCodeAt(i);
     }
 
-    // 2) Criar Path Table simples (1 entrada)
     const pathTableSectorOffset = pathTableSector * SECTOR_SIZE;
-    isoBuffer[pathTableSectorOffset] = 1; // Directory Identifier Length (Root dir)
-    isoBuffer[pathTableSectorOffset + 1] = 0; // Extended Attribute Record Length
-    dv.setUint32(pathTableSectorOffset + 2, rootDirSector, true); // Location of Extent
-    isoBuffer[pathTableSectorOffset + 6] = 1; // Parent Directory Number
+    isoBuffer[pathTableSectorOffset] = 1;
+    isoBuffer[pathTableSectorOffset + 1] = 0;
+    dv.setUint32(pathTableSectorOffset + 2, rootDirSector, true);
+    isoBuffer[pathTableSectorOffset + 6] = 1;
     isoBuffer[pathTableSectorOffset + 7] = 0;
 
-    // 3) Criar diretório raiz (sector 20)
     const rootDirOffset = rootDirSector * SECTOR_SIZE;
     let dirPos = rootDirOffset;
 
-    // "." Directory record
     const dotRecord = createDirectoryRecord("\x00", rootDirSector, rootDirSize);
     isoBuffer.set(dotRecord, dirPos);
     dirPos += dotRecord.length;
 
-    // ".." Directory record (também root)
     const dotDotRecord = createDirectoryRecord("\x01", rootDirSector, rootDirSize);
     isoBuffer.set(dotDotRecord, dirPos);
     dirPos += dotDotRecord.length;
 
-    // Entradas para arquivos
     let currentExtentSector = rootDirSector + 1;
     for(const file of files) {
       const record = createDirectoryRecord(file.name, currentExtentSector, fileDataBuffers.shift().length);
       isoBuffer.set(record, dirPos);
       dirPos += record.length;
 
-      // Copiar conteúdo do arquivo para setor alocado
       const dataBuffer = textEncoderUTF8(file.content);
       const dataPadded = zeroPad(dataBuffer, Math.ceil(dataBuffer.length / SECTOR_SIZE) * SECTOR_SIZE);
       const dataStart = currentExtentSector * SECTOR_SIZE;
@@ -342,7 +309,7 @@
     link.download = filename;
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    link.remove();
 
     log('Download iniciado: ' + filename);
   };
