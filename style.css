@@ -5,8 +5,8 @@ body {
   padding: 20px;
 }
 
-h1 { 
-  color: #FF6F00; 
+h1 {
+  color: #FF6F00;
 }
 
 textarea {
@@ -22,10 +22,10 @@ textarea {
   resize: vertical;
 }
 
-label { 
-  font-weight: bold; 
-  margin-top: 15px; 
-  display: block; 
+label {
+  font-weight: bold;
+  margin-top: 15px;
+  display: block;
 }
 
 input[type="text"] {
@@ -38,7 +38,8 @@ input[type="text"] {
   color: #eee;
 }
 
-input[type="text"]:focus, textarea:focus {
+input[type="text"]:focus,
+textarea:focus {
   outline: 2px solid #FF6F00;
 }
 
